@@ -1,0 +1,1 @@
+"./src/hardware_setup.o" "./src/i2c.o" "./src/interrupt_handlers.o" "./src/reset_program.o" "./src/rxserial.o" "./src/sensot_test.o" "./src/vector_table.o" 

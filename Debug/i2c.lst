@@ -1,0 +1,586 @@
+   1                             		.file	"i2c.c"
+   2                             		.section P,"ax"
+   3                             	.Ltext0:
+   4                             		.global	_init_iic_master
+   6                             	_init_iic_master:
+   7                             	.LFB0:
+   8                             		.file 1 "../src/i2c.c"
+   1:../src/i2c.c  **** /*
+   2:../src/i2c.c  ****  * i2c.c
+   3:../src/i2c.c  ****  *
+   4:../src/i2c.c  ****  *  Created on: 2017/08/16
+   5:../src/i2c.c  ****  *      Author: kouhei
+   6:../src/i2c.c  ****  */
+   7:../src/i2c.c  **** #include "iodefine.h"
+   8:../src/i2c.c  **** #include "i2c.h"
+   9:../src/i2c.c  **** 
+  10:../src/i2c.c  **** //Master側iicイニシャライズ
+  11:../src/i2c.c  **** void init_iic_master(void){
+   9                             		.loc 1 11 0
+  10 0000 6E 6B                   		pushm	r6-r11
+  11                             	.LCFI0:
+  12 0002 EF 06                   		mov.L	r0, r6
+  13                             	.LCFI1:
+  12:../src/i2c.c  **** 
+  13:../src/i2c.c  **** 	SYSTEM.MSTPCRB.BIT.MSTPB21 = 0; //I2Cモジュールスタンバイ解除
+  14                             		.loc 1 13 0
+  15 0004 FB AE 00 00 08          		mov.L	#0x80000, r10
+  16 0009 ED AB 05                		mov.L	20[r10], r11
+  17 000c 77 2B FF FF DF          		and	#0xffdfffff, r11
+  18 0011 E7 AB 05                		mov.L	r11, 20[r10]
+  14:../src/i2c.c  **** 	MSTP(RIIC0) = 0;
+  19                             		.loc 1 14 0
+  20 0014 FB AE 00 00 08          		mov.L	#0x80000, r10
+  21 0019 ED AB 05                		mov.L	20[r10], r11
+  22 001c 77 2B FF FF DF          		and	#0xffdfffff, r11
+  23 0021 E7 AB 05                		mov.L	r11, 20[r10]
+  15:../src/i2c.c  **** 
+  16:../src/i2c.c  **** 	RIIC0.ICCR1.BIT.ICE = 0;		//初期設定中はI2Cを停止
+  24                             		.loc 1 16 0
+  25 0024 FB AE 00 83 08          		mov.L	#0x88300, r10
+  26 0029 CC AB                   		mov.B	[r10], r11
+  27 002b 75 2B 7F                		and	#0x7f, r11
+  28 002e C3 AB                   		mov.B	r11, [r10]
+  17:../src/i2c.c  **** 	RIIC0.ICCR1.BIT.IICRST = 1;		//I2Cリセット
+  29                             		.loc 1 17 0
+  30 0030 FB AE 00 83 08          		mov.L	#0x88300, r10
+  31 0035 CC AB                   		mov.B	[r10], r11
+  32 0037 75 3B 40                		or	#64, r11
+  33 003a C3 AB                   		mov.B	r11, [r10]
+  18:../src/i2c.c  **** 	RIIC0.ICCR1.BIT.IICRST = 0;		//I2Cリセット解除
+  34                             		.loc 1 18 0
+  35 003c FB AE 00 83 08          		mov.L	#0x88300, r10
+  36 0041 CC AB                   		mov.B	[r10], r11
+  37 0043 75 2B BF                		and	#0xffffffbf, r11
+  38 0046 C3 AB                   		mov.B	r11, [r10]
+  19:../src/i2c.c  **** 
+  20:../src/i2c.c  **** //	RIIC0.ICSER.BIT.SAR0E = 1;		//SARL0,SARU0の設定値有効
+  21:../src/i2c.c  **** //	RIIC0.ICSER.BIT.SAR1E = 1;		//SARL1,SARU1の設定値有効
+  22:../src/i2c.c  **** 	RIIC0.ICSER.BIT.GCAE = 0;		//ジェネラルコードアドレス無効
+  39                             		.loc 1 22 0
+  40 0048 FB AE 00 83 08          		mov.L	#0x88300, r10
+  41 004d CD AB 06                		mov.B	6[r10], r11
+  42 0050 75 2B F7                		and	#-9, r11
+  43 0053 C7 AB 06                		mov.B	r11, 6[r10]
+  23:../src/i2c.c  **** 
+  24:../src/i2c.c  **** 	////////////////////////////
+  25:../src/i2c.c  **** 	// IIC phi = PCLK/2 clock //
+  26:../src/i2c.c  **** 	// 400kbps (372k)(PCLK = 24MHz) //
+  27:../src/i2c.c  **** 	////////////////////////////
+  28:../src/i2c.c  **** 	RIIC0.ICMR1.BIT.CKS = 1;
+  44                             		.loc 1 28 0
+  45 0056 FB AE 00 83 08          		mov.L	#0x88300, r10
+  46 005b CD AB 02                		mov.B	2[r10], r11
+  47 005e 75 2B 8F                		and	#0xffffff8f, r11
+  48 0061 75 3B 10                		or	#16, r11
+  49 0064 C7 AB 02                		mov.B	r11, 2[r10]
+  29:../src/i2c.c  **** 	RIIC0.ICBRH.BIT.BRH = 10;//7
+  50                             		.loc 1 29 0
+  51 0067 FB AE 00 83 08          		mov.L	#0x88300, r10
+  52 006c CD AB 11                		mov.B	17[r10], r11
+  53 006f 75 2B E0                		and	#-32, r11
+  54 0072 65 AB                   		or	#10, r11
+  55 0074 C7 AB 11                		mov.B	r11, 17[r10]
+  30:../src/i2c.c  **** 	RIIC0.ICBRL.BIT.BRL = 20;//16 //31
+  56                             		.loc 1 30 0
+  57 0077 FB AE 00 83 08          		mov.L	#0x88300, r10
+  58 007c CD AB 10                		mov.B	16[r10], r11
+  59 007f 75 2B E0                		and	#-32, r11
+  60 0082 75 3B 14                		or	#20, r11
+  61 0085 C7 AB 10                		mov.B	r11, 16[r10]
+  31:../src/i2c.c  **** 
+  32:../src/i2c.c  **** 	RIIC0.ICMR2.BYTE = 0x00;		//タイムアウト検出の条件設定 使う場合はコメント
+  62                             		.loc 1 32 0
+  63 0088 FB AE 00 83 08          		mov.L	#0x88300, r10
+  64 008d F9 A4 03 00             		mov.B	#0, 3[r10]
+  33:../src/i2c.c  **** 	RIIC0.ICMR3.BYTE = 0x10;
+  65                             		.loc 1 33 0
+  66 0091 FB AE 00 83 08          		mov.L	#0x88300, r10
+  67 0096 F9 A4 04 10             		mov.B	#16, 4[r10]
+  34:../src/i2c.c  **** 	RIIC0.ICMR3.BIT.ACKWP = 1;		//NACk/ACK信号の送信選択許可(RIIC0.ICMR3.BIT.ACKBTへの書�
+  68                             		.loc 1 34 0
+  69 009a FB AE 00 83 08          		mov.L	#0x88300, r10
+  70 009f CD AB 04                		mov.B	4[r10], r11
+  71 00a2 75 3B 10                		or	#16, r11
+  72 00a5 C7 AB 04                		mov.B	r11, 4[r10]
+  35:../src/i2c.c  **** 
+  36:../src/i2c.c  **** 	/* iic用ピン設定 */
+  37:../src/i2c.c  **** 	PORT1.DDR.BIT.B2 = 0;	//i2c:SCL0の使用
+  73                             		.loc 1 37 0
+  74 00a8 FB AE 01 C0 08          		mov.L	#0x8c001, r10
+  75 00ad CC AB                   		mov.B	[r10], r11
+  76 00af 75 2B FB                		and	#-5, r11
+  77 00b2 C3 AB                   		mov.B	r11, [r10]
+  38:../src/i2c.c  **** 	PORT1.DDR.BIT.B3 = 0;	//i2c:SDA0の使用
+  78                             		.loc 1 38 0
+  79 00b4 FB AE 01 C0 08          		mov.L	#0x8c001, r10
+  80 00b9 CC AB                   		mov.B	[r10], r11
+  81 00bb 75 2B F7                		and	#-9, r11
+  82 00be C3 AB                   		mov.B	r11, [r10]
+  39:../src/i2c.c  **** 	PORT1.ICR.BIT.B2 = 1;	//i2c:SCL 入力バッファ有効
+  83                             		.loc 1 39 0
+  84 00c0 FB AE 01 C0 08          		mov.L	#0x8c001, r10
+  85 00c5 CD AB 60                		mov.B	96[r10], r11
+  86 00c8 65 4B                   		or	#4, r11
+  87 00ca C7 AB 60                		mov.B	r11, 96[r10]
+  40:../src/i2c.c  **** 	PORT1.ICR.BIT.B3 = 1;	//i2c:SDA 入力バッファ有効
+  88                             		.loc 1 40 0
+  89 00cd FB AE 01 C0 08          		mov.L	#0x8c001, r10
+  90 00d2 CD AB 60                		mov.B	96[r10], r11
+  91 00d5 65 8B                   		or	#8, r11
+  92 00d7 C7 AB 60                		mov.B	r11, 96[r10]
+  41:../src/i2c.c  **** 
+  42:../src/i2c.c  **** 	RIIC0.ICFER.BIT.NFE = 1;		//デジタルノイズフィルタ使用
+  93                             		.loc 1 42 0
+  94 00da FB AE 00 83 08          		mov.L	#0x88300, r10
+  95 00df CD AB 05                		mov.B	5[r10], r11
+  96 00e2 75 3B 20                		or	#32, r11
+  97 00e5 C7 AB 05                		mov.B	r11, 5[r10]
+  43:../src/i2c.c  **** 
+  44:../src/i2c.c  **** 	RIIC0.ICCR1.BIT.ICE = 1;		//I2C転送動作可能状態
+  98                             		.loc 1 44 0
+  99 00e8 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 100 00ed CC AB                   		mov.B	[r10], r11
+ 101 00ef 75 3B 80                		or	#0xffffff80, r11
+ 102 00f2 C3 AB                   		mov.B	r11, [r10]
+  45:../src/i2c.c  **** }
+ 103                             		.loc 1 45 0
+ 104 00f4 3F 6B 06                		rtsd	#24, r6-r11
+ 105                             	.LFE0:
+ 107                             		.global	_iic_write_data
+ 109                             	_iic_write_data:
+ 110                             	.LFB1:
+  46:../src/i2c.c  **** 
+  47:../src/i2c.c  **** /***********************************************************
+  48:../src/i2c.c  ****  * 　addressにある機器にdata[]の中にあるデータを書き込む
+  49:../src/i2c.c  ****  **********************************************************/
+  50:../src/i2c.c  ****  //master 送信関数
+  51:../src/i2c.c  **** void iic_write_data(unsigned char address,unsigned char data[],int data_num)
+  52:../src/i2c.c  **** {
+ 111                             		.loc 1 52 0
+ 112 00f7 6E 6C                   		pushm	r6-r12
+ 113                             	.LCFI2:
+ 114 00f9 71 06 F0                		add	#-16, r0, r6
+ 115                             	.LCFI3:
+ 116 00fc EF 60                   		mov.L	r6, r0
+ 117                             	.LCFI4:
+ 118 00fe 81 61                   		mov.B	r1, 4[r6]
+ 119 0100 A0 E2                   		mov.L	r2, 8[r6]
+ 120 0102 A0 EB                   		mov.L	r3, 12[r6]
+  53:../src/i2c.c  **** 	int i;
+  54:../src/i2c.c  **** 
+  55:../src/i2c.c  **** 	while(RIIC0.ICCR2.BIT.BBSY);			//BBSY=1でI2Cパス占有状態
+ 121                             		.loc 1 55 0
+ 122 0104 03                      		nop
+ 123                             	.L3:
+ 124                             		.loc 1 55 0 is_stmt 0 discriminator 1
+ 125 0105 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 126 010a CD AA 01                		mov.B	1[r10], r10
+ 127 010d 5B AA                   		movu.B	r10, r10
+ 128 010f 68 7A                   		shlr	#7, r10
+ 129 0111 5B AA                   		movu.B	r10, r10
+ 130 0113 61 0A                   		cmp	#0, r10
+ 131 0115 21 F0                   		bne	.L3
+  56:../src/i2c.c  **** 	RIIC0.ICCR2.BIT.ST = 1;  				//開始条件発行
+ 132                             		.loc 1 56 0 is_stmt 1
+ 133 0117 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 134 011c CD AB 01                		mov.B	1[r10], r11
+ 135 011f 65 2B                   		or	#2, r11
+ 136 0121 C7 AB 01                		mov.B	r11, 1[r10]
+  57:../src/i2c.c  **** 
+  58:../src/i2c.c  **** 	if(RIIC0.ICSR2.BIT.NACKF==0){			//NACK未検出
+ 137                             		.loc 1 58 0
+ 138 0124 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 139 0129 CD AA 09                		mov.B	9[r10], r10
+ 140 012c 5B AA                   		movu.B	r10, r10
+ 141 012e 68 4A                   		shlr	#4, r10
+ 142 0130 64 1A                   		and	#1, r10
+ 143 0132 5B AA                   		movu.B	r10, r10
+ 144 0134 61 0A                   		cmp	#0, r10
+ 145 0136 21 6D                   		bne	.L4
+  59:../src/i2c.c  **** 		while(!RIIC0.ICSR2.BIT.TDRE);		//ICDRTレジスタに送信データなし
+ 146                             		.loc 1 59 0
+ 147 0138 03                      		nop
+ 148                             	.L5:
+ 149                             		.loc 1 59 0 is_stmt 0 discriminator 1
+ 150 0139 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 151 013e CD AA 09                		mov.B	9[r10], r10
+ 152 0141 5B AA                   		movu.B	r10, r10
+ 153 0143 68 7A                   		shlr	#7, r10
+ 154 0145 5B AA                   		movu.B	r10, r10
+ 155 0147 61 0A                   		cmp	#0, r10
+ 156 0149 20 F0                   		beq	.L5
+  60:../src/i2c.c  **** 		RIIC0.ICDRT = address | I2C_WRITE; 	//=(16進数)0xAA = (2進数)10101010
+ 157                             		.loc 1 60 0 is_stmt 1
+ 158 014b FB AE 00 83 08          		mov.L	#0x88300, r10
+ 159 0150 CD 6B 04                		mov.B	4[r6], r11
+ 160 0153 C7 AB 12                		mov.B	r11, 18[r10]
+  61:../src/i2c.c  **** 											//slaveアドレス7ビット+「write」1ビット
+  62:../src/i2c.c  **** 
+  63:../src/i2c.c  **** 		for(i=0;i<data_num;i++){
+ 161                             		.loc 1 63 0
+ 162 0156 3E 60 00                		mov.L	#0, [r6]
+ 163 0159 2E 2C                   		bra	.L6
+ 164                             	.L8:
+  64:../src/i2c.c  **** 			while(!RIIC0.ICSR2.BIT.TDRE);	//ICDRTレジスタに送信データなし
+ 165                             		.loc 1 64 0
+ 166 015b 03                      		nop
+ 167                             	.L7:
+ 168                             		.loc 1 64 0 is_stmt 0 discriminator 1
+ 169 015c FB AE 00 83 08          		mov.L	#0x88300, r10
+ 170 0161 CD AA 09                		mov.B	9[r10], r10
+ 171 0164 5B AA                   		movu.B	r10, r10
+ 172 0166 68 7A                   		shlr	#7, r10
+ 173 0168 5B AA                   		movu.B	r10, r10
+ 174 016a 61 0A                   		cmp	#0, r10
+ 175 016c 20 F0                   		beq	.L7
+  65:../src/i2c.c  **** 			RIIC0.ICDRT = data[i];			//データライト
+ 176                             		.loc 1 65 0 is_stmt 1
+ 177 016e FB AE 00 83 08          		mov.L	#0x88300, r10
+ 178 0173 EC 6B                   		mov.L	[r6], r11
+ 179 0175 ED 6C 02                		mov.L	8[r6], r12
+ 180 0178 4B CB                   		add	r12, r11
+ 181 017a CC BB                   		mov.B	[r11], r11
+ 182 017c C7 AB 12                		mov.B	r11, 18[r10]
+  63:../src/i2c.c  **** 			while(!RIIC0.ICSR2.BIT.TDRE);	//ICDRTレジスタに送信データなし
+ 183                             		.loc 1 63 0
+ 184 017f EC 6A                   		mov.L	[r6], r10
+ 185 0181 62 1A                   		add	#1, r10
+ 186 0183 E3 6A                   		mov.L	r10, [r6]
+ 187                             	.L6:
+  63:../src/i2c.c  **** 			while(!RIIC0.ICSR2.BIT.TDRE);	//ICDRTレジスタに送信データなし
+ 188                             		.loc 1 63 0 is_stmt 0 discriminator 1
+ 189 0185 EC 6B                   		mov.L	[r6], r11
+ 190 0187 ED 6A 03                		mov.L	12[r6], r10
+ 191 018a 47 AB                   		cmp	r10, r11
+ 192 018c 29 CF                   		blt	.L8
+  66:../src/i2c.c  **** 		}
+  67:../src/i2c.c  **** 		while(!RIIC0.ICSR2.BIT.TEND);		//データ送信終了
+ 193                             		.loc 1 67 0 is_stmt 1
+ 194 018e 03                      		nop
+ 195                             	.L9:
+ 196                             		.loc 1 67 0 is_stmt 0 discriminator 1
+ 197 018f FB AE 00 83 08          		mov.L	#0x88300, r10
+ 198 0194 CD AA 09                		mov.B	9[r10], r10
+ 199 0197 5B AA                   		movu.B	r10, r10
+ 200 0199 68 6A                   		shlr	#6, r10
+ 201 019b 64 1A                   		and	#1, r10
+ 202 019d 5B AA                   		movu.B	r10, r10
+ 203 019f 61 0A                   		cmp	#0, r10
+ 204 01a1 20 EE                   		beq	.L9
+ 205                             	.L4:
+  68:../src/i2c.c  **** 	}
+  69:../src/i2c.c  **** 
+  70:../src/i2c.c  **** 	RIIC0.ICSR2.BIT.STOP = 0;				//ストップコンディション未検出
+ 206                             		.loc 1 70 0 is_stmt 1
+ 207 01a3 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 208 01a8 CD AB 09                		mov.B	9[r10], r11
+ 209 01ab 75 2B F7                		and	#-9, r11
+ 210 01ae C7 AB 09                		mov.B	r11, 9[r10]
+  71:../src/i2c.c  **** 	RIIC0.ICCR2.BIT.SP = 1;					//停止条件発行
+ 211                             		.loc 1 71 0
+ 212 01b1 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 213 01b6 CD AB 01                		mov.B	1[r10], r11
+ 214 01b9 65 8B                   		or	#8, r11
+ 215 01bb C7 AB 01                		mov.B	r11, 1[r10]
+  72:../src/i2c.c  **** 
+  73:../src/i2c.c  **** 	while(!RIIC0.ICSR2.BIT.STOP);			//停止条件発行確認 (1になるまで待機)
+ 216                             		.loc 1 73 0
+ 217 01be 03                      		nop
+ 218                             	.L10:
+ 219                             		.loc 1 73 0 is_stmt 0 discriminator 1
+ 220 01bf FB AE 00 83 08          		mov.L	#0x88300, r10
+ 221 01c4 CD AA 09                		mov.B	9[r10], r10
+ 222 01c7 5B AA                   		movu.B	r10, r10
+ 223 01c9 68 3A                   		shlr	#3, r10
+ 224 01cb 64 1A                   		and	#1, r10
+ 225 01cd 5B AA                   		movu.B	r10, r10
+ 226 01cf 61 0A                   		cmp	#0, r10
+ 227 01d1 20 EE                   		beq	.L10
+  74:../src/i2c.c  **** 
+  75:../src/i2c.c  **** 	//次の通信のための処理
+  76:../src/i2c.c  **** 	RIIC0.ICSR2.BIT.NACKF = 0;				//NACK未検出
+ 228                             		.loc 1 76 0 is_stmt 1
+ 229 01d3 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 230 01d8 CD AB 09                		mov.B	9[r10], r11
+ 231 01db 75 2B EF                		and	#-17, r11
+ 232 01de C7 AB 09                		mov.B	r11, 9[r10]
+  77:../src/i2c.c  **** 	RIIC0.ICSR2.BIT.STOP = 0;				//ストップコンディション未検出
+ 233                             		.loc 1 77 0
+ 234 01e1 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 235 01e6 CD AB 09                		mov.B	9[r10], r11
+ 236 01e9 75 2B F7                		and	#-9, r11
+ 237 01ec C7 AB 09                		mov.B	r11, 9[r10]
+  78:../src/i2c.c  **** 
+  79:../src/i2c.c  **** }
+ 238                             		.loc 1 79 0
+ 239 01ef 3F 6C 0B                		rtsd	#44, r6-r12
+ 240                             	.LFE1:
+ 242                             		.global	_iic_read_data
+ 244                             	_iic_read_data:
+ 245                             	.LFB2:
+  80:../src/i2c.c  **** 
+  81:../src/i2c.c  **** /***********************************************************
+  82:../src/i2c.c  ****  * addressにある機器からdata[]へ、データを読み込む。
+  83:../src/i2c.c  ****  * この実行前に iic_write_data()によって、デバイスのregister map
+  84:../src/i2c.c  ****  * を送信しておく必要あり。
+  85:../src/i2c.c  ****  **********************************************************/
+  86:../src/i2c.c  ****  //master 受信関数
+  87:../src/i2c.c  **** void iic_read_data(unsigned char address, unsigned char data[],int data_num)
+  88:../src/i2c.c  **** {
+ 246                             		.loc 1 88 0
+ 247 01f2 6E 6B                   		pushm	r6-r11
+ 248                             	.LCFI5:
+ 249 01f4 71 06 EC                		add	#-20, r0, r6
+ 250                             	.LCFI6:
+ 251 01f7 EF 60                   		mov.L	r6, r0
+ 252                             	.LCFI7:
+ 253 01f9 82 61                   		mov.B	r1, 8[r6]
+ 254 01fb A0 EA                   		mov.L	r2, 12[r6]
+ 255 01fd A1 63                   		mov.L	r3, 16[r6]
+  89:../src/i2c.c  **** 	int i;
+  90:../src/i2c.c  **** 	unsigned char dummy;
+  91:../src/i2c.c  **** 
+  92:../src/i2c.c  **** 	while(RIIC0.ICCR2.BIT.BBSY);		//BBSY=1でI2Cパス占有状態
+ 256                             		.loc 1 92 0
+ 257 01ff 03                      		nop
+ 258                             	.L12:
+ 259                             		.loc 1 92 0 is_stmt 0 discriminator 1
+ 260 0200 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 261 0205 CD AA 01                		mov.B	1[r10], r10
+ 262 0208 5B AA                   		movu.B	r10, r10
+ 263 020a 68 7A                   		shlr	#7, r10
+ 264 020c 5B AA                   		movu.B	r10, r10
+ 265 020e 61 0A                   		cmp	#0, r10
+ 266 0210 21 F0                   		bne	.L12
+  93:../src/i2c.c  **** 
+  94:../src/i2c.c  **** 	//まず,マスター送信モードでアドレスとREADを書き込み
+  95:../src/i2c.c  **** 	RIIC0.ICCR2.BIT.ST = 1;  		//開始条件発行
+ 267                             		.loc 1 95 0 is_stmt 1
+ 268 0212 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 269 0217 CD AB 01                		mov.B	1[r10], r11
+ 270 021a 65 2B                   		or	#2, r11
+ 271 021c C7 AB 01                		mov.B	r11, 1[r10]
+  96:../src/i2c.c  **** 	while(!RIIC0.ICSR2.BIT.TDRE);		//ICDRTレジスタに送信データなし
+ 272                             		.loc 1 96 0
+ 273 021f 03                      		nop
+ 274                             	.L13:
+ 275                             		.loc 1 96 0 is_stmt 0 discriminator 1
+ 276 0220 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 277 0225 CD AA 09                		mov.B	9[r10], r10
+ 278 0228 5B AA                   		movu.B	r10, r10
+ 279 022a 68 7A                   		shlr	#7, r10
+ 280 022c 5B AA                   		movu.B	r10, r10
+ 281 022e 61 0A                   		cmp	#0, r10
+ 282 0230 20 F0                   		beq	.L13
+  97:../src/i2c.c  **** 	RIIC0.ICDRT = address | I2C_READ; 	//データライト(アドレス)
+ 283                             		.loc 1 97 0 is_stmt 1
+ 284 0232 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 285 0237 CD 6B 08                		mov.B	8[r6], r11
+ 286 023a 65 1B                   		or	#1, r11
+ 287 023c C7 AB 12                		mov.B	r11, 18[r10]
+  98:../src/i2c.c  **** 
+  99:../src/i2c.c  **** 	//マスタ受信モード
+ 100:../src/i2c.c  **** 	while(!RIIC0.ICSR2.BIT.RDRF);		//ICDRRレジスタに受信データあり
+ 288                             		.loc 1 100 0
+ 289 023f 03                      		nop
+ 290                             	.L14:
+ 291                             		.loc 1 100 0 is_stmt 0 discriminator 1
+ 292 0240 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 293 0245 CD AA 09                		mov.B	9[r10], r10
+ 294 0248 5B AA                   		movu.B	r10, r10
+ 295 024a 68 5A                   		shlr	#5, r10
+ 296 024c 64 1A                   		and	#1, r10
+ 297 024e 5B AA                   		movu.B	r10, r10
+ 298 0250 61 0A                   		cmp	#0, r10
+ 299 0252 20 EE                   		beq	.L14
+ 101:../src/i2c.c  **** 
+ 102:../src/i2c.c  **** 	if(RIIC0.ICSR2.BIT.NACKF==0){		//NACK未検出
+ 300                             		.loc 1 102 0 is_stmt 1
+ 301 0254 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 302 0259 CD AA 09                		mov.B	9[r10], r10
+ 303 025c 5B AA                   		movu.B	r10, r10
+ 304 025e 68 4A                   		shlr	#4, r10
+ 305 0260 64 1A                   		and	#1, r10
+ 306 0262 5B AA                   		movu.B	r10, r10
+ 307 0264 61 0A                   		cmp	#0, r10
+ 308 0266 3B D2 00                		bne	.L15
+ 103:../src/i2c.c  **** 		dummy = RIIC0.ICDRR;		//ダミーリード：これが受信のきっかけ
+ 309                             		.loc 1 103 0
+ 310 0269 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 311 026e CD AA 13                		mov.B	19[r10], r10
+ 312 0271 C7 6A 04                		mov.B	r10, 4[r6]
+ 104:../src/i2c.c  **** 
+ 105:../src/i2c.c  **** 		for(i=0;i<data_num-1;i++){
+ 313                             		.loc 1 105 0
+ 314 0274 3E 60 00                		mov.L	#0, [r6]
+ 315 0277 2E 61                   		bra	.L16
+ 316                             	.L20:
+ 106:../src/i2c.c  **** 			while(!RIIC0.ICSR2.BIT.RDRF);	//ICDRRレジスタに受信データあり
+ 317                             		.loc 1 106 0
+ 318 0279 03                      		nop
+ 319                             	.L17:
+ 320                             		.loc 1 106 0 is_stmt 0 discriminator 1
+ 321 027a FB AE 00 83 08          		mov.L	#0x88300, r10
+ 322 027f CD AA 09                		mov.B	9[r10], r10
+ 323 0282 5B AA                   		movu.B	r10, r10
+ 324 0284 68 5A                   		shlr	#5, r10
+ 325 0286 64 1A                   		and	#1, r10
+ 326 0288 5B AA                   		movu.B	r10, r10
+ 327 028a 61 0A                   		cmp	#0, r10
+ 328 028c 20 EE                   		beq	.L17
+ 107:../src/i2c.c  **** 			if(i==data_num-2){			//最後-1のデータ
+ 329                             		.loc 1 107 0 is_stmt 1
+ 330 028e ED 6A 04                		mov.L	16[r6], r10
+ 331 0291 71 AB FE                		add	#-2, r10, r11
+ 332 0294 EC 6A                   		mov.L	[r6], r10
+ 333 0296 47 AB                   		cmp	r10, r11
+ 334 0298 21 0F                   		bne	.L18
+ 108:../src/i2c.c  **** 				RIIC0.ICMR3.BIT.ACKBT = 1;	//データ受信完了(スレーブにNACK送信)
+ 335                             		.loc 1 108 0
+ 336 029a FB AE 00 83 08          		mov.L	#0x88300, r10
+ 337 029f CD AB 04                		mov.B	4[r10], r11
+ 338 02a2 65 8B                   		or	#8, r11
+ 339 02a4 C7 AB 04                		mov.B	r11, 4[r10]
+ 340                             	.L18:
+ 109:../src/i2c.c  **** 			}
+ 110:../src/i2c.c  **** 			if(i==data_num-3){			//最後-2のデータ
+ 341                             		.loc 1 110 0
+ 342 02a7 ED 6A 04                		mov.L	16[r6], r10
+ 343 02aa 71 AB FD                		add	#-3, r10, r11
+ 344 02ad EC 6A                   		mov.L	[r6], r10
+ 345 02af 47 AB                   		cmp	r10, r11
+ 346 02b1 21 10                   		bne	.L19
+ 111:../src/i2c.c  **** 				RIIC0.ICMR3.BIT.WAIT = 1;	//Lowにホールド
+ 347                             		.loc 1 111 0
+ 348 02b3 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 349 02b8 CD AB 04                		mov.B	4[r10], r11
+ 350 02bb 75 3B 40                		or	#64, r11
+ 351 02be C7 AB 04                		mov.B	r11, 4[r10]
+ 352                             	.L19:
+ 112:../src/i2c.c  **** 			}
+ 113:../src/i2c.c  **** 			data[i] = RIIC0.ICDRR;			//受信したデータ格納
+ 353                             		.loc 1 113 0
+ 354 02c1 EC 6A                   		mov.L	[r6], r10
+ 355 02c3 ED 6B 03                		mov.L	12[r6], r11
+ 356 02c6 4B BA                   		add	r11, r10
+ 357 02c8 FB BE 00 83 08          		mov.L	#0x88300, r11
+ 358 02cd CD BB 13                		mov.B	19[r11], r11
+ 359 02d0 C3 AB                   		mov.B	r11, [r10]
+ 105:../src/i2c.c  **** 			while(!RIIC0.ICSR2.BIT.RDRF);	//ICDRRレジスタに受信データあり
+ 360                             		.loc 1 105 0
+ 361 02d2 EC 6A                   		mov.L	[r6], r10
+ 362 02d4 62 1A                   		add	#1, r10
+ 363 02d6 E3 6A                   		mov.L	r10, [r6]
+ 364                             	.L16:
+ 105:../src/i2c.c  **** 			while(!RIIC0.ICSR2.BIT.RDRF);	//ICDRRレジスタに受信データあり
+ 365                             		.loc 1 105 0 is_stmt 0 discriminator 1
+ 366 02d8 ED 6A 04                		mov.L	16[r6], r10
+ 367 02db 71 AB FF                		add	#-1, r10, r11
+ 368 02de EC 6A                   		mov.L	[r6], r10
+ 369 02e0 47 AB                   		cmp	r10, r11
+ 370 02e2 2A 97                   		bgt	.L20
+ 114:../src/i2c.c  **** 		}
+ 115:../src/i2c.c  **** 
+ 116:../src/i2c.c  **** 		while(!RIIC0.ICSR2.BIT.RDRF);	//ICDRRレジスタに受信データあり
+ 371                             		.loc 1 116 0 is_stmt 1
+ 372 02e4 03                      		nop
+ 373                             	.L21:
+ 374                             		.loc 1 116 0 is_stmt 0 discriminator 1
+ 375 02e5 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 376 02ea CD AA 09                		mov.B	9[r10], r10
+ 377 02ed 5B AA                   		movu.B	r10, r10
+ 378 02ef 68 5A                   		shlr	#5, r10
+ 379 02f1 64 1A                   		and	#1, r10
+ 380 02f3 5B AA                   		movu.B	r10, r10
+ 381 02f5 61 0A                   		cmp	#0, r10
+ 382 02f7 20 EE                   		beq	.L21
+ 117:../src/i2c.c  **** 		RIIC0.ICSR2.BIT.STOP = 0;		//ストップコンディション未検出
+ 383                             		.loc 1 117 0 is_stmt 1
+ 384 02f9 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 385 02fe CD AB 09                		mov.B	9[r10], r11
+ 386 0301 75 2B F7                		and	#-9, r11
+ 387 0304 C7 AB 09                		mov.B	r11, 9[r10]
+ 118:../src/i2c.c  **** 		RIIC0.ICCR2.BIT.SP = 1;			//停止条件発行
+ 388                             		.loc 1 118 0
+ 389 0307 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 390 030c CD AB 01                		mov.B	1[r10], r11
+ 391 030f 65 8B                   		or	#8, r11
+ 392 0311 C7 AB 01                		mov.B	r11, 1[r10]
+ 119:../src/i2c.c  **** 		data[data_num-1] = RIIC0.ICDRR;	//受信した最後のデータ格納
+ 393                             		.loc 1 119 0
+ 394 0314 ED 6A 04                		mov.L	16[r6], r10
+ 395 0317 60 1A                   		sub	#1, r10
+ 396 0319 ED 6B 03                		mov.L	12[r6], r11
+ 397 031c 4B BA                   		add	r11, r10
+ 398 031e FB BE 00 83 08          		mov.L	#0x88300, r11
+ 399 0323 CD BB 13                		mov.B	19[r11], r11
+ 400 0326 C3 AB                   		mov.B	r11, [r10]
+ 120:../src/i2c.c  **** 		RIIC0.ICMR3.BIT.WAIT = 0;		//Lowにホールド解除
+ 401                             		.loc 1 120 0
+ 402 0328 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 403 032d CD AB 04                		mov.B	4[r10], r11
+ 404 0330 75 2B BF                		and	#0xffffffbf, r11
+ 405 0333 C7 AB 04                		mov.B	r11, 4[r10]
+ 121:../src/i2c.c  **** 	}
+ 122:../src/i2c.c  **** 	else{								//NACK検出
+ 123:../src/i2c.c  **** 		RIIC0.ICSR2.BIT.STOP = 0;		//ストップコンディション未検出
+ 124:../src/i2c.c  **** 		RIIC0.ICCR2.BIT.SP = 1;			//停止条件発行
+ 125:../src/i2c.c  **** 		dummy = RIIC0.ICDRR;			//受信レジスタのダミーリード
+ 126:../src/i2c.c  **** 	}
+ 127:../src/i2c.c  **** 
+ 128:../src/i2c.c  **** 	while(!RIIC0.ICSR2.BIT.STOP);		//停止条件発行確認<-------バグの場所！！！！！
+ 406                             		.loc 1 128 0
+ 407 0336 2E 28                   		bra	.L24
+ 408                             	.L15:
+ 123:../src/i2c.c  **** 		RIIC0.ICCR2.BIT.SP = 1;			//停止条件発行
+ 409                             		.loc 1 123 0
+ 410 0338 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 411 033d CD AB 09                		mov.B	9[r10], r11
+ 412 0340 75 2B F7                		and	#-9, r11
+ 413 0343 C7 AB 09                		mov.B	r11, 9[r10]
+ 124:../src/i2c.c  **** 		dummy = RIIC0.ICDRR;			//受信レジスタのダミーリード
+ 414                             		.loc 1 124 0
+ 415 0346 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 416 034b CD AB 01                		mov.B	1[r10], r11
+ 417 034e 65 8B                   		or	#8, r11
+ 418 0350 C7 AB 01                		mov.B	r11, 1[r10]
+ 125:../src/i2c.c  **** 	}
+ 419                             		.loc 1 125 0
+ 420 0353 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 421 0358 CD AA 13                		mov.B	19[r10], r10
+ 422 035b C7 6A 04                		mov.B	r10, 4[r6]
+ 423                             	.L24:
+ 424                             		.loc 1 128 0
+ 425 035e 03                      		nop
+ 426                             	.L23:
+ 427                             		.loc 1 128 0 is_stmt 0 discriminator 1
+ 428 035f FB AE 00 83 08          		mov.L	#0x88300, r10
+ 429 0364 CD AA 09                		mov.B	9[r10], r10
+ 430 0367 5B AA                   		movu.B	r10, r10
+ 431 0369 68 3A                   		shlr	#3, r10
+ 432 036b 64 1A                   		and	#1, r10
+ 433 036d 5B AA                   		movu.B	r10, r10
+ 434 036f 61 0A                   		cmp	#0, r10
+ 435 0371 20 EE                   		beq	.L23
+ 129:../src/i2c.c  **** 
+ 130:../src/i2c.c  **** 	//次の通信のための処理
+ 131:../src/i2c.c  **** 	RIIC0.ICSR2.BIT.NACKF=0;	//NACK未検出
+ 436                             		.loc 1 131 0 is_stmt 1
+ 437 0373 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 438 0378 CD AB 09                		mov.B	9[r10], r11
+ 439 037b 75 2B EF                		and	#-17, r11
+ 440 037e C7 AB 09                		mov.B	r11, 9[r10]
+ 132:../src/i2c.c  **** 	RIIC0.ICSR2.BIT.STOP=0;		//ストップコンディション未検出
+ 441                             		.loc 1 132 0
+ 442 0381 FB AE 00 83 08          		mov.L	#0x88300, r10
+ 443 0386 CD AB 09                		mov.B	9[r10], r11
+ 444 0389 75 2B F7                		and	#-9, r11
+ 445 038c C7 AB 09                		mov.B	r11, 9[r10]
+ 133:../src/i2c.c  **** 
+ 134:../src/i2c.c  **** }
+ 446                             		.loc 1 134 0
+ 447 038f 3F 6B 0B                		rtsd	#44, r6-r11
+ 448                             	.LFE2:
+ 564                             	.Letext0:
+ 565                             		.file 2 "../src/iodefine.h"

@@ -1,0 +1,568 @@
+   1                             		.file	"rxserial.c"
+   2                             		.section P,"ax"
+   3                             	.Ltext0:
+   4                             		.comm	_Buf,1024,1
+   5                             		.global	_Buf_start
+   6                             		.section B,"w",@nobits
+   7                             		.p2align 2
+   8                             		.balign 2
+  11                             	_Buf_start:
+  12 0000 00 00                   		.zero	2
+  13                             		.global	_Buf_end
+  14                             		.balign 2
+  17                             	_Buf_end:
+  18 0002 00 00                   		.zero	2
+  19                             		.global	_Buffer_protect
+  22                             	_Buffer_protect:
+  23 0004 00                      		.zero	1
+  24                             		.global	_SCI_stop
+  25 0005 00 00 00                		.section D,"aw",@progbits
+  26                             		.p2align 2
+  29                             	_SCI_stop:
+  30 0000 01                      		.byte	1
+  31 0001 00 00 00                		.section P,"ax"
+  32                             		.global	_init_serial
+  34                             	_init_serial:
+  35                             	.LFB0:
+  36                             		.file 1 "../src/rxserial.c"
+   1:../src/rxserial.c **** /*
+   2:../src/rxserial.c ****  * rxserial.c
+   3:../src/rxserial.c ****  *
+   4:../src/rxserial.c ****  *  Created on: 2017/08/16
+   5:../src/rxserial.c ****  *      Author: kouhei
+   6:../src/rxserial.c ****  */
+   7:../src/rxserial.c **** #include "iodefine.h"
+   8:../src/rxserial.c **** #include "rxserial.h"
+   9:../src/rxserial.c **** 
+  10:../src/rxserial.c **** volatile char Buf[BUFSIZE];
+  11:../src/rxserial.c **** volatile short Buf_start=0;
+  12:../src/rxserial.c **** volatile short Buf_end=0;
+  13:../src/rxserial.c **** volatile unsigned char Buffer_protect = 0;
+  14:../src/rxserial.c **** volatile unsigned char SCI_stop = 1;
+  15:../src/rxserial.c **** 
+  16:../src/rxserial.c **** void init_serial(void)
+  17:../src/rxserial.c **** {
+  37                             		.loc 1 17 0
+  38 0000 6E 6B                   		pushm	r6-r11
+  39                             	.LCFI0:
+  40 0002 71 06 FC                		add	#-4, r0, r6
+  41                             	.LCFI1:
+  42 0005 EF 60                   		mov.L	r6, r0
+  43                             	.LCFI2:
+  18:../src/rxserial.c **** 	long i;
+  19:../src/rxserial.c **** 
+  20:../src/rxserial.c **** 	Buf_start=0;
+  44                             		.loc 1 20 0
+  45 0007 FB A2 00 00 00 00       		mov.L	#_Buf_start, r10
+  46 000d F8 A5 00                		mov.W	#0, [r10]
+  21:../src/rxserial.c **** 	Buf_end = 0;
+  47                             		.loc 1 21 0
+  48 0010 FB A2 00 00 00 00       		mov.L	#_Buf_end, r10
+  49 0016 F8 A5 00                		mov.W	#0, [r10]
+  22:../src/rxserial.c **** 	Buffer_protect = 0;
+  50                             		.loc 1 22 0
+  51 0019 FB A2 00 00 00 00       		mov.L	#_Buffer_protect, r10
+  52 001f F8 A4 00                		mov.B	#0, [r10]
+  23:../src/rxserial.c **** 	SCI_stop = 1;
+  53                             		.loc 1 23 0
+  54 0022 FB A2 00 00 00 00       		mov.L	#_SCI_stop, r10
+  55 0028 F8 A4 01                		mov.B	#1, [r10]
+  24:../src/rxserial.c **** 
+  25:../src/rxserial.c **** 	MSTP(SCI1) = 0;			//SCI1のスタンバイを解除
+  56                             		.loc 1 25 0
+  57 002b FB AE 00 00 08          		mov.L	#0x80000, r10
+  58 0030 ED AB 05                		mov.L	20[r10], r11
+  59 0033 74 2B FF FF FF BF       		and	#0xbfffffff, r11
+  60 0039 E7 AB 05                		mov.L	r11, 20[r10]
+  26:../src/rxserial.c **** 	//IOPORT
+  27:../src/rxserial.c **** 	PORT2.DDR.BIT.B6 = 1;	//PORT2-6 TxD1 出力に設定
+  61                             		.loc 1 27 0
+  62 003c FB AE 02 C0 08          		mov.L	#0x8c002, r10
+  63 0041 CC AB                   		mov.B	[r10], r11
+  64 0043 75 3B 40                		or	#64, r11
+  65 0046 C3 AB                   		mov.B	r11, [r10]
+  28:../src/rxserial.c **** 	PORT3.DDR.BIT.B0 = 0;	//PORT3-0 RxD1 入力に設定
+  66                             		.loc 1 28 0
+  67 0048 FB AE 03 C0 08          		mov.L	#0x8c003, r10
+  68 004d CC AB                   		mov.B	[r10], r11
+  69 004f 75 2B FE                		and	#-2, r11
+  70 0052 C3 AB                   		mov.B	r11, [r10]
+  29:../src/rxserial.c **** 	PORT3.ICR.BIT.B0 = 1;	//入力バッファ有効[1]
+  71                             		.loc 1 29 0
+  72 0054 FB AE 03 C0 08          		mov.L	#0x8c003, r10
+  73 0059 CD AB 60                		mov.B	96[r10], r11
+  74 005c 65 1B                   		or	#1, r11
+  75 005e C7 AB 60                		mov.B	r11, 96[r10]
+  30:../src/rxserial.c **** 	//SCI1初期化スタート
+  31:../src/rxserial.c **** 	SCI1.SCR.BYTE = 0;		//SCRレジスタ初期化
+  76                             		.loc 1 31 0
+  77 0061 FB AE 48 82 08          		mov.L	#0x88248, r10
+  78 0066 F9 A4 02 00             		mov.B	#0, 2[r10]
+  32:../src/rxserial.c **** 	SCI1.SCR.BIT.CKE  = 0;	//クロック選択0:内臓ボーレートジェネレータ[2]
+  79                             		.loc 1 32 0
+  80 006a FB AE 48 82 08          		mov.L	#0x88248, r10
+  81 006f CD AB 02                		mov.B	2[r10], r11
+  82 0072 75 2B FC                		and	#-4, r11
+  83 0075 C7 AB 02                		mov.B	r11, 2[r10]
+  33:../src/rxserial.c **** 	//SMR
+  34:../src/rxserial.c **** 	SCI1.SMR.BIT.CKS = 0;	//クロック選択　PCLK/1 n=0[3]
+  84                             		.loc 1 34 0
+  85 0078 FB AE 48 82 08          		mov.L	#0x88248, r10
+  86 007d CC AB                   		mov.B	[r10], r11
+  87 007f 75 2B FC                		and	#-4, r11
+  88 0082 C3 AB                   		mov.B	r11, [r10]
+  35:../src/rxserial.c **** 	SCI1.SMR.BIT.MP = 0;	//マルチプロセッサ通信機能　0:禁止   1:許可
+  89                             		.loc 1 35 0
+  90 0084 FB AE 48 82 08          		mov.L	#0x88248, r10
+  91 0089 CC AB                   		mov.B	[r10], r11
+  92 008b 75 2B FB                		and	#-5, r11
+  93 008e C3 AB                   		mov.B	r11, [r10]
+  36:../src/rxserial.c **** 	SCI1.SMR.BIT.STOP = 0;	//ストップビット長　0:1ビット　1:2ビット[3]
+  94                             		.loc 1 36 0
+  95 0090 FB AE 48 82 08          		mov.L	#0x88248, r10
+  96 0095 CC AB                   		mov.B	[r10], r11
+  97 0097 75 2B F7                		and	#-9, r11
+  98 009a C3 AB                   		mov.B	r11, [r10]
+  37:../src/rxserial.c **** 	//SCI1.SMR.BIT.PM = 0;	//パリティモードビット 0:偶数パリティ　1:奇数パリテ�
+  38:../src/rxserial.c **** 	SCI1.SMR.BIT.PE = 0;	//パリティビットなし[3]
+  99                             		.loc 1 38 0
+ 100 009c FB AE 48 82 08          		mov.L	#0x88248, r10
+ 101 00a1 CC AB                   		mov.B	[r10], r11
+ 102 00a3 75 2B DF                		and	#-33, r11
+ 103 00a6 C3 AB                   		mov.B	r11, [r10]
+  39:../src/rxserial.c **** 	SCI1.SMR.BIT.CHR = 0;	//データ長 0:8ビット 1:7ビット
+ 104                             		.loc 1 39 0
+ 105 00a8 FB AE 48 82 08          		mov.L	#0x88248, r10
+ 106 00ad CC AB                   		mov.B	[r10], r11
+ 107 00af 75 2B BF                		and	#0xffffffbf, r11
+ 108 00b2 C3 AB                   		mov.B	r11, [r10]
+  40:../src/rxserial.c **** 	SCI1.SMR.BIT.CM = 0;	//コミニケーションモード　0:調歩同期　1:クロック同期
+ 109                             		.loc 1 40 0
+ 110 00b4 FB AE 48 82 08          		mov.L	#0x88248, r10
+ 111 00b9 CC AB                   		mov.B	[r10], r11
+ 112 00bb 75 2B 7F                		and	#0x7f, r11
+ 113 00be C3 AB                   		mov.B	r11, [r10]
+  41:../src/rxserial.c **** 	SCI1.SCMR.BYTE = 0xF2;	//スマートカードモードレジスタ　スマートカード使用�
+ 114                             		.loc 1 41 0
+ 115 00c0 FB AE 48 82 08          		mov.L	#0x88248, r10
+ 116 00c5 F9 A4 06 F2             		mov.B	#-14, 6[r10]
+  42:../src/rxserial.c **** 	SCI1.BRR = 77;			//ビットレート設定　9600bps PCLK=24MHZ n=0 N=77
+ 117                             		.loc 1 42 0
+ 118 00c9 FB AE 48 82 08          		mov.L	#0x88248, r10
+ 119 00ce F9 A4 01 4D             		mov.B	#0x4d, 1[r10]
+  43:../src/rxserial.c **** 	for(i=0;i<100000;i++);	//謎の1ビット期間以上待つ(1/9600秒か？)
+ 120                             		.loc 1 43 0
+ 121 00d2 3E 60 00                		mov.L	#0, [r6]
+ 122 00d5 0F                      		bra	.L2
+ 123                             	.L3:
+ 124                             		.loc 1 43 0 is_stmt 0 discriminator 2
+ 125 00d6 EC 6A                   		mov.L	[r6], r10
+ 126 00d8 62 1A                   		add	#1, r10
+ 127 00da E3 6A                   		mov.L	r10, [r6]
+ 128                             	.L2:
+ 129                             		.loc 1 43 0 discriminator 1
+ 130 00dc EC 6A                   		mov.L	[r6], r10
+ 131 00de 77 0A 9F 86 01          		cmp	#0x1869f, r10
+ 132 00e3 2B F3                   		ble	.L3
+  44:../src/rxserial.c **** 	SCI1.TDR=0;
+ 133                             		.loc 1 44 0 is_stmt 1
+ 134 00e5 FB AE 48 82 08          		mov.L	#0x88248, r10
+ 135 00ea F9 A4 03 00             		mov.B	#0, 3[r10]
+  45:../src/rxserial.c **** 	//SCI1.SCR.BIT.TIE = 1;	//TXI割込みを許可
+  46:../src/rxserial.c **** 	IPR(SCI1,TXI1) = 0x7;	//SCI1のRXI1の割り込み優先度を7に設定
+ 136                             		.loc 1 46 0
+ 137 00ee FB AE 00 70 08          		mov.L	#0x87000, r10
+ 138 00f3 CE AB 81 03             		mov.B	897[r10], r11
+ 139 00f7 75 2B F0                		and	#-16, r11
+ 140 00fa 65 7B                   		or	#7, r11
+ 141 00fc CB AB 81 03             		mov.B	r11, 897[r10]
+  47:../src/rxserial.c **** 	IEN(SCI1,TXI1) = 0x1;	//SCI1のRXI1の割り込みを有効化
+ 142                             		.loc 1 47 0
+ 143 0100 FB AE 00 70 08          		mov.L	#0x87000, r10
+ 144 0105 CE AB 1B 02             		mov.B	539[r10], r11
+ 145 0109 75 3B 10                		or	#16, r11
+ 146 010c CB AB 1B 02             		mov.B	r11, 539[r10]
+  48:../src/rxserial.c **** 	IR(SCI1,TXI1) = 0x0;	//SCI1のRXI1の割り込みフラグをクリア
+ 147                             		.loc 1 48 0
+ 148 0110 FB AE 00 70 08          		mov.L	#0x87000, r10
+ 149 0115 CD AB DC                		mov.B	220[r10], r11
+ 150 0118 75 2B FE                		and	#-2, r11
+ 151 011b C7 AB DC                		mov.B	r11, 220[r10]
+  49:../src/rxserial.c **** 	IPR(SCI1,TEI1) = 0x7;	//SCI1のRXI1の割り込み優先度を7に設定
+ 152                             		.loc 1 49 0
+ 153 011e FB AE 00 70 08          		mov.L	#0x87000, r10
+ 154 0123 CE AB 81 03             		mov.B	897[r10], r11
+ 155 0127 75 2B F0                		and	#-16, r11
+ 156 012a 65 7B                   		or	#7, r11
+ 157 012c CB AB 81 03             		mov.B	r11, 897[r10]
+  50:../src/rxserial.c **** 	IEN(SCI1,TEI1) = 0x1;	//SCI1のRXI1の割り込みを有効化
+ 158                             		.loc 1 50 0
+ 159 0130 FB AE 00 70 08          		mov.L	#0x87000, r10
+ 160 0135 CE AB 1B 02             		mov.B	539[r10], r11
+ 161 0139 75 3B 20                		or	#32, r11
+ 162 013c CB AB 1B 02             		mov.B	r11, 539[r10]
+  51:../src/rxserial.c **** 	IR(SCI1,TEI1) = 0x0;	//SCI1のRXI1の割り込みフラグをクリア
+ 163                             		.loc 1 51 0
+ 164 0140 FB AE 00 70 08          		mov.L	#0x87000, r10
+ 165 0145 CD AB DD                		mov.B	221[r10], r11
+ 166 0148 75 2B FE                		and	#-2, r11
+ 167 014b C7 AB DD                		mov.B	r11, 221[r10]
+  52:../src/rxserial.c **** 
+  53:../src/rxserial.c **** 	//SCI1.SCR.BYTE = 0x30;	//受信許可ビットREと送信許可ビットTEを同時に1にして�
+  54:../src/rxserial.c **** }
+ 168                             		.loc 1 54 0
+ 169 014e 3F 6B 07                		rtsd	#28, r6-r11
+ 170                             	.LFE0:
+ 172                             		.global	_writeBuffer
+ 174                             	_writeBuffer:
+ 175                             	.LFB1:
+  55:../src/rxserial.c **** 
+  56:../src/rxserial.c **** int writeBuffer(char *s)
+  57:../src/rxserial.c **** {
+ 176                             		.loc 1 57 0
+ 177 0151 6E 6C                   		pushm	r6-r12
+ 178                             	.LCFI3:
+ 179 0153 71 06 F8                		add	#-8, r0, r6
+ 180                             	.LCFI4:
+ 181 0156 EF 60                   		mov.L	r6, r0
+ 182                             	.LCFI5:
+ 183 0158 A0 69                   		mov.L	r1, 4[r6]
+  58:../src/rxserial.c **** 	short i;
+  59:../src/rxserial.c **** 	short space;
+  60:../src/rxserial.c **** 
+  61:../src/rxserial.c **** 
+  62:../src/rxserial.c **** 	//Bufferに書き込める余地があるか調べる
+  63:../src/rxserial.c **** 	space=queryBufferSpace();
+ 184                             		.loc 1 63 0
+ 185 015a 05 00 00 00             		bsr	_queryBufferSpace
+ 186 015e EF 1A                   		mov.L	r1, r10
+ 187 0160 D3 6A                   		mov.W	r10, [r6]
+  64:../src/rxserial.c **** 	if (space<=strlen(s)) {
+ 188                             		.loc 1 64 0
+ 189 0162 DC 6B                   		mov.W	[r6], r11
+ 190 0164 A8 69                   		mov.L	4[r6], r1
+ 191 0166 05 00 00 00             		bsr	_strlen
+ 192 016a EF 1A                   		mov.L	r1, r10
+ 193 016c 47 AB                   		cmp	r10, r11
+ 194 016e 2A 06                   		bgt	.L5
+  65:../src/rxserial.c **** 		return 1;
+ 195                             		.loc 1 65 0
+ 196 0170 66 1A                   		mov.L	#1, r10
+ 197 0172 2E 6B                   		bra	.L6
+ 198                             	.L5:
+  66:../src/rxserial.c **** 	}
+  67:../src/rxserial.c **** 
+  68:../src/rxserial.c **** 	while(*s!='\0'){
+ 199                             		.loc 1 68 0
+ 200 0174 2E 5C                   		bra	.L7
+ 201                             	.L9:
+  69:../src/rxserial.c **** 		Buf[Buf_end]=*s;
+ 202                             		.loc 1 69 0
+ 203 0176 FB A2 00 00 00 00       		mov.L	#_Buf_end, r10
+ 204 017c DC AA                   		mov.W	[r10], r10
+ 205 017e DF AA                   		mov.W	r10, r10
+ 206 0180 ED 6B 01                		mov.L	4[r6], r11
+ 207 0183 CC BC                   		mov.B	[r11], r12
+ 208 0185 FB B2 00 00 00 00       		mov.L	#_Buf, r11
+ 209 018b FE 0A BC                		mov.B	r12, [r10,r11]
+  70:../src/rxserial.c **** 		Buf_end ++;
+ 210                             		.loc 1 70 0
+ 211 018e FB A2 00 00 00 00       		mov.L	#_Buf_end, r10
+ 212 0194 DC AA                   		mov.W	[r10], r10
+ 213 0196 62 1A                   		add	#1, r10
+ 214 0198 DF AB                   		mov.W	r10, r11
+ 215 019a FB A2 00 00 00 00       		mov.L	#_Buf_end, r10
+ 216 01a0 D3 AB                   		mov.W	r11, [r10]
+  71:../src/rxserial.c **** 		Buf_end = Buf_end%BUFSIZE;
+ 217                             		.loc 1 71 0
+ 218 01a2 FB A2 00 00 00 00       		mov.L	#_Buf_end, r10
+ 219 01a8 DC AA                   		mov.W	[r10], r10
+ 220 01aa DF AA                   		mov.W	r10, r10
+ 221 01ac 74 2A FF 03 00 80       		and	#0x800003ff, r10
+ 222 01b2 61 0A                   		cmp	#0, r10
+ 223 01b4 28 0A                   		bge	.L8
+ 224 01b6 60 1A                   		sub	#1, r10
+ 225 01b8 76 3A 00 FC             		or	#0xfffffc00, r10
+ 226 01bc 62 1A                   		add	#1, r10
+ 227                             	.L8:
+ 228 01be DF AB                   		mov.W	r10, r11
+ 229 01c0 FB A2 00 00 00 00       		mov.L	#_Buf_end, r10
+ 230 01c6 D3 AB                   		mov.W	r11, [r10]
+  72:../src/rxserial.c **** 		s++;
+ 231                             		.loc 1 72 0
+ 232 01c8 ED 6A 01                		mov.L	4[r6], r10
+ 233 01cb 62 1A                   		add	#1, r10
+ 234 01cd E7 6A 01                		mov.L	r10, 4[r6]
+ 235                             	.L7:
+  68:../src/rxserial.c **** 		Buf[Buf_end]=*s;
+ 236                             		.loc 1 68 0 discriminator 1
+ 237 01d0 ED 6A 01                		mov.L	4[r6], r10
+ 238 01d3 CC AA                   		mov.B	[r10], r10
+ 239 01d5 5B AA                   		movu.B	r10, r10
+ 240 01d7 61 0A                   		cmp	#0, r10
+ 241 01d9 21 9D                   		bne	.L9
+  73:../src/rxserial.c **** 	}
+  74:../src/rxserial.c **** 	return 0;
+ 242                             		.loc 1 74 0
+ 243 01db 66 0A                   		mov.L	#0, r10
+ 244                             	.L6:
+  75:../src/rxserial.c **** }
+ 245                             		.loc 1 75 0
+ 246 01dd EF A1                   		mov.L	r10, r1
+ 247 01df 3F 6C 09                		rtsd	#36, r6-r12
+ 248                             	.LFE1:
+ 250                             		.global	_queryBufferSpace
+ 252                             	_queryBufferSpace:
+ 253                             	.LFB2:
+  76:../src/rxserial.c **** 
+  77:../src/rxserial.c **** 
+  78:../src/rxserial.c **** int queryBufferSpace(void)
+  79:../src/rxserial.c **** {
+ 254                             		.loc 1 79 0
+ 255 01e2 6E 6B                   		pushm	r6-r11
+ 256                             	.LCFI6:
+ 257 01e4 EF 06                   		mov.L	r0, r6
+ 258                             	.LCFI7:
+  80:../src/rxserial.c **** 	if (Buf_start==Buf_end)return BUFSIZE;
+ 259                             		.loc 1 80 0
+ 260 01e6 FB A2 00 00 00 00       		mov.L	#_Buf_start, r10
+ 261 01ec DC AB                   		mov.W	[r10], r11
+ 262 01ee FB A2 00 00 00 00       		mov.L	#_Buf_end, r10
+ 263 01f4 DC AA                   		mov.W	[r10], r10
+ 264 01f6 DF BB                   		mov.W	r11, r11
+ 265 01f8 DF AA                   		mov.W	r10, r10
+ 266 01fa 47 AB                   		cmp	r10, r11
+ 267 01fc 1F                      		bne	.L11
+ 268                             		.loc 1 80 0 is_stmt 0 discriminator 1
+ 269 01fd FB AA 00 04             		mov.L	#0x400, r10
+ 270 0201 2E 30                   		bra	.L12
+ 271                             	.L11:
+  81:../src/rxserial.c **** 	else return (BUFSIZE- Buf_end + Buf_start)%BUFSIZE;
+ 272                             		.loc 1 81 0 is_stmt 1
+ 273 0203 FB A2 00 00 00 00       		mov.L	#_Buf_end, r10
+ 274 0209 DC AA                   		mov.W	[r10], r10
+ 275 020b DF AA                   		mov.W	r10, r10
+ 276 020d FB BA 00 04             		mov.L	#0x400, r11
+ 277 0211 43 AB                   		sub	r10, r11
+ 278 0213 FB A2 00 00 00 00       		mov.L	#_Buf_start, r10
+ 279 0219 DC AA                   		mov.W	[r10], r10
+ 280 021b DF AA                   		mov.W	r10, r10
+ 281 021d 4B BA                   		add	r11, r10
+ 282 021f 74 2A FF 03 00 80       		and	#0x800003ff, r10
+ 283 0225 61 0A                   		cmp	#0, r10
+ 284 0227 28 0A                   		bge	.L12
+ 285 0229 60 1A                   		sub	#1, r10
+ 286 022b 76 3A 00 FC             		or	#0xfffffc00, r10
+ 287 022f 62 1A                   		add	#1, r10
+ 288                             	.L12:
+  82:../src/rxserial.c **** }
+ 289                             		.loc 1 82 0
+ 290 0231 EF A1                   		mov.L	r10, r1
+ 291 0233 3F 6B 06                		rtsd	#24, r6-r11
+ 292                             	.LFE2:
+ 294                             		.global	_sendString
+ 296                             	_sendString:
+ 297                             	.LFB3:
+  83:../src/rxserial.c **** 
+  84:../src/rxserial.c **** int sendString(char *s)
+  85:../src/rxserial.c **** {
+ 298                             		.loc 1 85 0
+ 299 0236 7E AA                   		push.l	r10
+ 300                             	.LCFI8:
+ 301 0238 7E A6                   		push.l	r6
+ 302                             	.LCFI9:
+ 303 023a 71 06 FC                		add	#-4, r0, r6
+ 304                             	.LCFI10:
+ 305 023d EF 60                   		mov.L	r6, r0
+ 306                             	.LCFI11:
+ 307 023f E3 61                   		mov.L	r1, [r6]
+  86:../src/rxserial.c **** 
+  87:../src/rxserial.c **** 	while(writeBuffer(s)==1);
+ 308                             		.loc 1 87 0
+ 309 0241 03                      		nop
+ 310                             	.L15:
+ 311                             		.loc 1 87 0 is_stmt 0 discriminator 1
+ 312 0242 EC 61                   		mov.L	[r6], r1
+ 313 0244 05 00 00 00             		bsr	_writeBuffer
+ 314 0248 EF 1A                   		mov.L	r1, r10
+ 315 024a 61 1A                   		cmp	#1, r10
+ 316 024c 20 F6                   		beq	.L15
+  88:../src/rxserial.c **** 	if(SCI_stop){
+ 317                             		.loc 1 88 0 is_stmt 1
+ 318 024e FB A2 00 00 00 00       		mov.L	#_SCI_stop, r10
+ 319 0254 CC AA                   		mov.B	[r10], r10
+ 320 0256 5B AA                   		movu.B	r10, r10
+ 321 0258 61 0A                   		cmp	#0, r10
+ 322 025a 20 14                   		beq	.L16
+  89:../src/rxserial.c **** 		SCI1.SCR.BYTE = 0xb0;                   //TIE,RIE,RE，TEを設定して割り込みを有効化
+ 323                             		.loc 1 89 0
+ 324 025c FB AE 48 82 08          		mov.L	#0x88248, r10
+ 325 0261 F9 A4 02 B0             		mov.B	#0xffffffb0, 2[r10]
+  90:../src/rxserial.c **** 		SCI_stop = 0;
+ 326                             		.loc 1 90 0
+ 327 0265 FB A2 00 00 00 00       		mov.L	#_SCI_stop, r10
+ 328 026b F8 A4 00                		mov.B	#0, [r10]
+ 329                             	.L16:
+  91:../src/rxserial.c **** 	}
+  92:../src/rxserial.c **** 	return 0;
+ 330                             		.loc 1 92 0
+ 331 026e 66 0A                   		mov.L	#0, r10
+  93:../src/rxserial.c **** }
+ 332                             		.loc 1 93 0
+ 333 0270 EF A1                   		mov.L	r10, r1
+ 334 0272 62 40                   		add	#4, r0
+ 335 0274 7E B6                   		pop	r6
+ 336 0276 7E BA                   		pop	r10
+ 337 0278 02                      		rts
+ 338                             	.LFE3:
+ 340                             		.global	_strlen
+ 342                             	_strlen:
+ 343                             	.LFB4:
+  94:../src/rxserial.c **** 
+  95:../src/rxserial.c **** int strlen(char *s)
+  96:../src/rxserial.c **** {
+ 344                             		.loc 1 96 0
+ 345 0279 7E AA                   		push.l	r10
+ 346                             	.LCFI12:
+ 347 027b 7E A6                   		push.l	r6
+ 348                             	.LCFI13:
+ 349 027d 71 06 F8                		add	#-8, r0, r6
+ 350                             	.LCFI14:
+ 351 0280 EF 60                   		mov.L	r6, r0
+ 352                             	.LCFI15:
+ 353 0282 A0 69                   		mov.L	r1, 4[r6]
+  97:../src/rxserial.c **** 	int cnt;
+  98:../src/rxserial.c **** 	cnt=0;
+ 354                             		.loc 1 98 0
+ 355 0284 3E 60 00                		mov.L	#0, [r6]
+  99:../src/rxserial.c **** 	while(*s!='\0'){
+ 356                             		.loc 1 99 0
+ 357 0287 2E 10                   		bra	.L19
+ 358                             	.L20:
+ 100:../src/rxserial.c **** 		s++;
+ 359                             		.loc 1 100 0
+ 360 0289 ED 6A 01                		mov.L	4[r6], r10
+ 361 028c 62 1A                   		add	#1, r10
+ 362 028e E7 6A 01                		mov.L	r10, 4[r6]
+ 101:../src/rxserial.c **** 		cnt++;
+ 363                             		.loc 1 101 0
+ 364 0291 EC 6A                   		mov.L	[r6], r10
+ 365 0293 62 1A                   		add	#1, r10
+ 366 0295 E3 6A                   		mov.L	r10, [r6]
+ 367                             	.L19:
+  99:../src/rxserial.c **** 	while(*s!='\0'){
+ 368                             		.loc 1 99 0 discriminator 1
+ 369 0297 ED 6A 01                		mov.L	4[r6], r10
+ 370 029a CC AA                   		mov.B	[r10], r10
+ 371 029c 5B AA                   		movu.B	r10, r10
+ 372 029e 61 0A                   		cmp	#0, r10
+ 373 02a0 21 E9                   		bne	.L20
+ 102:../src/rxserial.c **** 	}
+ 103:../src/rxserial.c **** 	return cnt;
+ 374                             		.loc 1 103 0
+ 375 02a2 EC 6A                   		mov.L	[r6], r10
+ 104:../src/rxserial.c **** }
+ 376                             		.loc 1 104 0
+ 377 02a4 EF A1                   		mov.L	r10, r1
+ 378 02a6 62 80                   		add	#8, r0
+ 379 02a8 7E B6                   		pop	r6
+ 380 02aa 7E BA                   		pop	r10
+ 381 02ac 02                      		rts
+ 382                             	.LFE4:
+ 384                             		.global	_itoa
+ 386                             	_itoa:
+ 387                             	.LFB5:
+ 105:../src/rxserial.c **** 
+ 106:../src/rxserial.c **** int itoa(int x, char *s)
+ 107:../src/rxserial.c **** {
+ 388                             		.loc 1 107 0
+ 389 02ad 6E 6C                   		pushm	r6-r12
+ 390                             	.LCFI16:
+ 391 02af 71 06 F0                		add	#-16, r0, r6
+ 392                             	.LCFI17:
+ 393 02b2 EF 60                   		mov.L	r6, r0
+ 394                             	.LCFI18:
+ 395 02b4 A0 E1                   		mov.L	r1, 8[r6]
+ 396 02b6 A0 EA                   		mov.L	r2, 12[r6]
+ 108:../src/rxserial.c **** 	int i,j;
+ 109:../src/rxserial.c **** 	for(i = 1; i*10<= x; i*=10);
+ 397                             		.loc 1 109 0
+ 398 02b8 3E 60 01                		mov.L	#1, [r6]
+ 399 02bb 0F                      		bra	.L23
+ 400                             	.L24:
+ 401                             		.loc 1 109 0 is_stmt 0 discriminator 2
+ 402 02bc EC 6A                   		mov.L	[r6], r10
+ 403 02be 63 AA                   		mul	#10, r10
+ 404 02c0 E3 6A                   		mov.L	r10, [r6]
+ 405                             	.L23:
+ 406                             		.loc 1 109 0 discriminator 1
+ 407 02c2 EC 6A                   		mov.L	[r6], r10
+ 408 02c4 66 AB                   		mov.L	#10, r11
+ 409 02c6 4F AB                   		mul	r10, r11
+ 410 02c8 ED 6A 02                		mov.L	8[r6], r10
+ 411 02cb 47 AB                   		cmp	r10, r11
+ 412 02cd 2B EF                   		ble	.L24
+ 110:../src/rxserial.c **** 	for(j = 0; 0 < i; i /=10,j++,s++){
+ 413                             		.loc 1 110 0 is_stmt 1
+ 414 02cf 3E 61 00                		mov.L	#0, 4[r6]
+ 415 02d2 2E 54                   		bra	.L25
+ 416                             	.L26:
+ 111:../src/rxserial.c **** 		*s = x/i+'0';
+ 417                             		.loc 1 111 0 discriminator 2
+ 418 02d4 ED 6B 02                		mov.L	8[r6], r11
+ 419 02d7 EC 6A                   		mov.L	[r6], r10
+ 420 02d9 EF B7                   		mov.L	r11, r7
+ 421 02db FC 23 A7                		div	r10, r7
+ 422 02de EF 7A                   		mov.L	r7, r10
+ 423 02e0 71 AA 30                		add	#48, r10
+ 424 02e3 CF AB                   		mov.B	r10, r11
+ 425 02e5 ED 6A 03                		mov.L	12[r6], r10
+ 426 02e8 C3 AB                   		mov.B	r11, [r10]
+ 112:../src/rxserial.c **** 		x %= i;
+ 427                             		.loc 1 112 0 discriminator 2
+ 428 02ea ED 6A 02                		mov.L	8[r6], r10
+ 429 02ed EC 6B                   		mov.L	[r6], r11
+ 430 02ef EF AC                   		mov.L	r10, r12
+ 431 02f1 FC 23 BC                		div	r11, r12
+ 432 02f4 EC 6B                   		mov.L	[r6], r11
+ 433 02f6 4F CB                   		mul	r12, r11
+ 434 02f8 43 BA                   		sub	r11, r10
+ 435 02fa E7 6A 02                		mov.L	r10, 8[r6]
+ 110:../src/rxserial.c **** 	for(j = 0; 0 < i; i /=10,j++,s++){
+ 436                             		.loc 1 110 0 discriminator 2
+ 437 02fd EC 6C                   		mov.L	[r6], r12
+ 438 02ff FB 72 67 66 66 66       		mov.L	#0x66666667, r7
+ 439 0305 FC 1B C7                		emul	r12, r7
+ 440 0308 EF 7A                   		mov.L	r7, r10
+ 441 030a EF 8B                   		mov.L	r8, r11
+ 442 030c 6A 2B                   		shar	#2, r11
+ 443 030e FD BF CA                		shar	#31, r12, r10
+ 444 0311 FF 0A AB                		sub	r10, r11, r10
+ 445 0314 E3 6A                   		mov.L	r10, [r6]
+ 446 0316 ED 6A 01                		mov.L	4[r6], r10
+ 447 0319 62 1A                   		add	#1, r10
+ 448 031b E7 6A 01                		mov.L	r10, 4[r6]
+ 449 031e ED 6A 03                		mov.L	12[r6], r10
+ 450 0321 62 1A                   		add	#1, r10
+ 451 0323 E7 6A 03                		mov.L	r10, 12[r6]
+ 452                             	.L25:
+ 110:../src/rxserial.c **** 	for(j = 0; 0 < i; i /=10,j++,s++){
+ 453                             		.loc 1 110 0 is_stmt 0 discriminator 1
+ 454 0326 EC 6A                   		mov.L	[r6], r10
+ 455 0328 61 0A                   		cmp	#0, r10
+ 456 032a 2A AA                   		bgt	.L26
+ 113:../src/rxserial.c **** 	}
+ 114:../src/rxserial.c **** 		*s = '\0';
+ 457                             		.loc 1 114 0 is_stmt 1
+ 458 032c ED 6A 03                		mov.L	12[r6], r10
+ 459 032f F8 A4 00                		mov.B	#0, [r10]
+ 115:../src/rxserial.c **** 	return 0;
+ 460                             		.loc 1 115 0
+ 461 0332 66 0A                   		mov.L	#0, r10
+ 116:../src/rxserial.c **** }
+ 462                             		.loc 1 116 0
+ 463 0334 EF A1                   		mov.L	r10, r1
+ 464 0336 3F 6C 0B                		rtsd	#44, r6-r12
+ 465                             	.LFE5:
+ 674                             	.Letext0:
+ 675                             		.file 2 "../src/iodefine.h"
